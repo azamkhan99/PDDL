@@ -1,0 +1,106 @@
+Part 1:
+1.1
+
+AdjacentTo(x, y)
+
+1.2
+
+Location(x)
+//Buff - Given as a constant in template files, along with Agent.
+At(x, y)
+
+1.3
+
+Plate(x)
+HasFood(x)
+
+1.4
+
+Customer(x)
+Served(x)
+
+1.5
+
+At(Agent, Buff) && At(p, Buff) && At(c, LB) && Plate(p) && Customer(c) && Location(Buff) && Location(UF) && Location(MF) && Location(LF) && Location(LB) && Location(MB) && Location(UB) && AdjacentTo(Buff, UF) && AdjacentTo(UF, BUFF) && AdjacentTo(MF, UF) && AdjacentTo(UF, MF) && AdjacentTo(MF, LF) && AdjacentTo(LF, MF) && AdjacentTo(LB, LF) && AdjacentTo(LF, LB) && AdjacentTo(MB, LB) && AdjacentTo(LB, MB) && AdjacentTo(UB, MB) && AdjacentTo(MB, UB) && AdjacentTo(UF, UB) && AdjacentTo(UB, UF)
+
+1.6
+
+Action(PICKUP(x, p)):
+Precondition: not(Holding(Agent, p)) && At(Agent, x) && At(p, x) && Plate(p) && Location(x) && (x ≠ p)
+Effect: Holding(Agent, p) && not(At(p, x))
+
+
+1.7
+
+Action(HANDOVER(p, c, x)):
+Precondition: At(Agent, x) && At(c, x) && not(Served(c)) && HasFood(p) && Holding(Agent, p) && Plate(P) && Customer(c) && Location(x) && (p ≠ c) && (c ≠ x)
+Effect: Served(c) && not(Holding(Agent, p))
+
+
+1.8
+
+Action(FILL(p)):
+Precondition: At(Agent, Buff) && Holding(Agent, p) && not(HasFood(p)) && Plate(p)
+Effect: HasFood(p)
+
+
+1.9
+
+Action(MOVE(from, to)):
+Precondition: At(Agent, from) && AdjacentTo(from, to) && Location(from) && Location(to) && (from ≠ to)
+Effect: At(Agent, to) && not(At(Agent, from))
+
+
+1.10
+
+Even though PDDL uses a closed world assumption, I have included the relevant negative literals in order to make the Backward state-space search more readable.
+
+Initial State:
+At(Agent, Buff) && At(p, Buff) && At(c, UF) && Plate(p) && Customer(c) && not(Served(c)) && not(HasFood(p)) && Location(UF) && Location(Buff) && AdjacentTo(Buff, UF)
+
+Goal State:
+Served(c)
+
+Backward state-space search:
+
+g1 = Served(c)
+	- Available Actions: HANDOVER(p', c, x)
+	- Agent chooses: HANDOVER(p', c, x)
+
+g2 = At(Agent, x) && At(c, x) && not(Served(c)) && HasFood(p') && Holding(Agent, p') && Plate(p') && Customer(c) && Location(x) && (p ≠ c) && (c ≠ x)
+	- Available Actions: MOVE(y, x) FILL(p')
+	- Agent chooses: MOVE(y, x)
+
+g3 = At(Agent, y) && AdjacentTo(y, x) && Location(y) && Location(x) && HasFood(p') && Holding(Agent, p') && Plate(p') && Customer(c) && not(Served(c)) && At(c, x) && (p ≠ c) && (c ≠ x) && (x ≠ y)
+	
+	- Available Actions: FILL(p'), PICKUP(p')
+	- Agent chooses: FILL(p')
+
+g4 = At(Agent, y) && Holding(Agent, p') && Plate(p') && Location(x) && Location(y) && Customer(c) && At(c, x) && AdjacentTo(y, x) && not(Served(c)) && not(HasFood(p')) && (p ≠ c) && (c ≠ x) &&   (x ≠ y)
+
+	- Available Actions: PICKUP(y, p')
+	- Agent chooses: PICKUP(y, p')
+
+g5 = At(Agent, y) && At(p', y) && At(c, x) && Plate(p') && Customer(c) && && not(Served(c)) && not(HasFood(p')) Location(x) && Location(y) && AdjacentTo(y, x) && (p ≠ c) && (c ≠ x) && (x ≠ y) && (y ≠ p)
+
+	-g5 satisfies initial state by substituting {x = UF, y = Buff, p' = p}
+
+Final plan: 
+	1. PICKUP(Buff, p) 
+	2. FILL(p) 
+	3. MOVE(Buff, UF) 
+	4. HANDOVER(p, c, UF)  
+
+Part 4:
+4.1
+
+Classical planning relies on the simple fact that a total ordering on the points at which actions are applied can be trivially embedded into a timeline. The duration between actions is not considered. It is not possible to associate specific durations with actions, to set deadlines or have windows of opportunity. We need to update our goals and actions in a way so that the agent can deal with the new constraints. For this specific problem, I am assuming for simplicity that the restaurant only offers the food which is on the limited menu, that is, hot tea/coffee, a dessert with ice cream and sushi. Now, if a customer is to be served sushi, the actions and goals do not have to be updated as no new constraints are introduced (sushi is largely unaffected by time). The tea/coffee has to be served in a timely fashion so it is not served to the customer cold. The dessert also has to be served straight away so it doesn't melt before reaching the customer. This means that the agent always has to serve tea/coffee and ice cream before sushi for everything to be served at an appropriate temperature. One way to do accomplish this would be to have the agent's goals implemented in a sort of priority queue (In a typical priority queue, an element with high priority is served before an element with low priority). In the case of this problem, serving customers who ordered hot/tea or coffee would have higher priority than customers who ordered sushi. Serving coffee/tea or ice cream would also have higher priority than say cleaning the floor (unless, of course, it stopped the agent from reaching the customer). 
+
+
+(MY ANSWERS TO 4.1 AND 4.2 OVERLAP)
+
+4.2
+
+In this new case, the agent must not only keep track of what food to serve, but also the sequence in which customers place orders. The agent would again need to prioritise its goals depending on the customers. Obviously highest priority would be given to serving customers who arrived first and ordered a food item such as hot tea/coffee or dessert. Then customers who ordered sushi. An issue with scheduling the goals like this is that if more customers keep arriving and there is dropped food/shards, the goal of cleaning up will keep getting pushed to the end of such a schedule and so wouldn't get accomplished until all the customers are eventually served. Our agent would have to also deal with dropped shards which are located near customers with children, this is something which can't easily be implemented in PDDL.
+
+
